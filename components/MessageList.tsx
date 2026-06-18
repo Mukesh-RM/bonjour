@@ -1,0 +1,76 @@
+"use client";
+
+import { MessageWithSender } from "@/lib/types";
+import { useEffect, useRef } from "react";
+import MessageBubble from "./MessageBubble";
+
+interface MessageListProps {
+  messages: MessageWithSender[];
+  currentUserId: string;
+  loading: boolean;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
+}
+
+export default function MessageList({
+  messages,
+  currentUserId,
+  loading,
+  onEdit,
+  onDelete,
+}: MessageListProps) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevLengthRef = useRef(0);
+
+  useEffect(() => {
+    if (messages.length > prevLengthRef.current || !loading) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevLengthRef.current = messages.length;
+  }, [messages, loading]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4 sm:px-6"
+    >
+      {messages.length === 0 ? (
+        <div className="flex h-full items-center justify-center">
+          <p className="text-sm text-slate-400">
+            No messages yet. Say hello!
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {messages.map((message, index) => {
+            const isOwn = message.sender_id === currentUserId;
+            const prevMessage = messages[index - 1];
+            const showAvatar =
+              !prevMessage || prevMessage.sender_id !== message.sender_id;
+
+            return (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                isOwn={isOwn}
+                showAvatar={showAvatar}
+                onEdit={() => onEdit(message.id)}
+                onDelete={() => onDelete(message.id)}
+              />
+            );
+          })}
+        </div>
+      )}
+      <div ref={bottomRef} />
+    </div>
+  );
+}
