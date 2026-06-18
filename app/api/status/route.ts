@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getOtherUsername, getSessionFromRequest } from "@/lib/auth";
 import { corsPreflightResponse, errorResponse, handleApiError, jsonResponse } from "@/lib/api-utils";
+
+export const runtime = "nodejs";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const presenceStore = new Map<string, { online: boolean; lastSeen: string }>();

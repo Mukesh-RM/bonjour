@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
 import { corsPreflightResponse, errorResponse, handleApiError, jsonResponse } from "@/lib/api-utils";
+
+export const runtime = "nodejs";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const typingStore = new Map<string, { isTyping: boolean; updatedAt: number }>();

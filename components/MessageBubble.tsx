@@ -18,9 +18,47 @@ function formatTime(dateStr: string): string {
 
 function ReadReceipt({ readAt }: { readAt: string | null }) {
   if (readAt) {
-    return <span className="text-blue-200">✓✓</span>;
+    return (
+      <svg
+        className="inline-block h-3.5 w-4 shrink-0"
+        viewBox="0 0 16 11"
+        fill="none"
+        aria-label="Read"
+      >
+        <path
+          d="M11.5 1.5L6 7l-1.5-1.5M4.5 1.5L0 6l1.5 1.5M11.5 1.5l1.5 1.5L16 1.5"
+          stroke="#53bdeb"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M5 5.5L7.5 8l5.5-5.5"
+          stroke="#53bdeb"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
   }
-  return <span className="text-blue-200/70">✓</span>;
+
+  return (
+    <svg
+      className="inline-block h-3.5 w-3 shrink-0 opacity-70"
+      viewBox="0 0 12 11"
+      fill="none"
+      aria-label="Sent"
+    >
+      <path
+        d="M1 5.5L4.5 9 11 1"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 export default function MessageBubble({

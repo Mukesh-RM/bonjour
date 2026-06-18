@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getSessionFromRequest } from "@/lib/auth";
+
+export const runtime = "nodejs";
 import {
   corsPreflightResponse,
   errorResponse,

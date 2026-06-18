@@ -6,11 +6,22 @@ import { ALLOWED_USERNAMES } from "@/lib/types";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleLogin(selectedUsername: string) {
+  async function handleLogin() {
+    if (!selectedUser) {
+      setError("Select an account first");
+      return;
+    }
+
+    if (!password) {
+      setError("Enter your password");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -18,10 +29,21 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: selectedUsername }),
+        body: JSON.stringify({ username: selectedUser, password }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        setError(
+          res.status === 500
+            ? "Server error. Check environment variables on Vercel."
+            : `Unexpected server response (${res.status})`
+        );
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error || "Login failed");
@@ -31,7 +53,7 @@ export default function LoginPage() {
       router.push("/chat");
       router.refresh();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Cannot reach server. Is the app running?");
     } finally {
       setLoading(false);
     }
@@ -46,7 +68,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Bonjour</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Select your account to start chatting
+            Select your account and enter password
           </p>
         </div>
 
@@ -54,9 +76,14 @@ export default function LoginPage() {
           {ALLOWED_USERNAMES.map((name) => (
             <button
               key={name}
-              onClick={() => handleLogin(name)}
+              type="button"
+              onClick={() => setSelectedUser(name)}
               disabled={loading}
-              className="flex w-full items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+              className={`flex w-full items-center gap-4 rounded-xl border px-5 py-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                selectedUser === name
+                  ? "border-blue-400 bg-blue-50 shadow-md"
+                  : "border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50"
+              }`}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-sm font-semibold text-white">
                 {name === "user1" ? "U1" : "U2"}
@@ -67,12 +94,30 @@ export default function LoginPage() {
                   {name === "user1" ? "Primary account" : "Secondary account"}
                 </p>
               </div>
-              {loading && username === name && (
-                <div className="ml-auto h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-              )}
             </button>
           ))}
         </div>
+
+        <div className="mt-5">
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+            placeholder="Password"
+            disabled={loading}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-blue-300 focus:bg-white disabled:opacity-50"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleLogin}
+          disabled={loading || !selectedUser}
+          className="mt-4 w-full rounded-xl bg-blue-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Signing in..." : "Sign in"}
+        </button>
 
         {error && (
           <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-center text-sm text-red-600">

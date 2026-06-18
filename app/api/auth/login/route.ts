@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import {
   createToken,
@@ -7,11 +7,16 @@ import {
   isValidUsername,
 } from "@/lib/auth";
 import { corsPreflightResponse, errorResponse, handleApiError, jsonResponse } from "@/lib/api-utils";
+import { getEnvStatus } from "@/lib/env";
+import { verifyUserPassword } from "@/lib/passwords";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
+export const runtime = "nodejs";
+
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export async function OPTIONS() {
@@ -20,6 +25,14 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
+    const envStatus = getEnvStatus();
+    if (!envStatus.ok) {
+      return errorResponse(
+        `Server misconfigured. Missing: ${envStatus.missing.join(", ")}`,
+        500
+      );
+    }
+
     const ip = getClientIp(request);
     const limit = rateLimit(`login:${ip}`, 10, 60_000);
     if (!limit.success) {
@@ -27,10 +40,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username } = loginSchema.parse(body);
+    const { username, password } = loginSchema.parse(body);
 
     if (!isValidUsername(username)) {
       return errorResponse("Invalid username. Use user1 or user2.", 401);
+    }
+
+    if (!verifyUserPassword(username, password)) {
+      return errorResponse("Invalid password", 401);
     }
 
     const supabase = getSupabaseAdmin();

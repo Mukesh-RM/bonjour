@@ -23,6 +23,15 @@ export default function ChatContainer({
   const [otherTyping, setOtherTyping] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const isTypingRef = useRef(false);
+
+  const markMessagesRead = useCallback(async () => {
+    try {
+      await fetch("/api/messages/read", { method: "POST" });
+    } catch {
+      return;
+    }
+  }, []);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -30,16 +39,25 @@ export default function ChatContainer({
       if (!res.ok) return;
       const data = await res.json();
       setMessages(data.messages);
+      await markMessagesRead();
     } catch {
       return;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [markMessagesRead]);
 
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  useEffect(() => {
+    const readInterval = setInterval(() => {
+      markMessagesRead();
+    }, 5000);
+
+    return () => clearInterval(readInterval);
+  }, [markMessagesRead]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -52,7 +70,8 @@ export default function ChatContainer({
         async (payload) => {
           if (payload.eventType === "INSERT") {
             const row = payload.new as MessageWithSender;
-            const supabase = getSupabaseBrowser();
+            const isIncoming = row.recipient_id === currentUser.id;
+
             const { data } = await supabase
               .from("messages")
               .select(
@@ -80,6 +99,10 @@ export default function ChatContainer({
                   },
                 ];
               });
+
+              if (isIncoming) {
+                markMessagesRead();
+              }
             }
           } else if (payload.eventType === "UPDATE") {
             const updated = payload.new as MessageWithSender;
@@ -142,7 +165,7 @@ export default function ChatContainer({
     const heartbeat = setInterval(() => {
       presenceChannel.track({
         online: true,
-        isTyping: false,
+        isTyping: isTypingRef.current,
         username: currentUser.username,
       });
       fetch("/api/status", {
@@ -171,7 +194,7 @@ export default function ChatContainer({
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(presenceChannel);
     };
-  }, [currentUser.id, currentUser.username]);
+  }, [currentUser.id, currentUser.username, markMessagesRead]);
 
   async function handleSend(content: string) {
     const res = await fetch("/api/messages", {
@@ -226,6 +249,8 @@ export default function ChatContainer({
   }
 
   async function handleTyping(isTyping: boolean) {
+    isTypingRef.current = isTyping;
+
     if (channelRef.current) {
       await channelRef.current.track({
         online: true,
@@ -263,7 +288,7 @@ export default function ChatContainer({
           <div>
             <h1 className="font-semibold text-slate-900">{otherUsername}</h1>
             <p className="text-xs text-slate-500">
-              {otherOnline ? "online" : "offline"}
+              {otherTyping ? "typing..." : otherOnline ? "online" : "offline"}
             </p>
           </div>
         </div>

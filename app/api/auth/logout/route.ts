@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCookieName } from "@/lib/auth";
 import { corsPreflightResponse, jsonResponse } from "@/lib/api-utils";
 
+export const runtime = "nodejs";
+
 export async function OPTIONS() {
   return corsPreflightResponse();
 }
