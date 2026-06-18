@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { UserTheme } from "@/lib/theme";
 
 interface InputBarProps {
   onSend: (content: string) => Promise<void>;
@@ -9,6 +10,7 @@ interface InputBarProps {
   editContent: string;
   onSaveEdit: (id: string, content: string) => Promise<void>;
   onCancelEdit: () => void;
+  theme: UserTheme;
 }
 
 export default function InputBar({
@@ -18,6 +20,7 @@ export default function InputBar({
   editContent,
   onSaveEdit,
   onCancelEdit,
+  theme,
 }: InputBarProps) {
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
@@ -67,6 +70,9 @@ export default function InputBar({
       setError(err instanceof Error ? err.message : "Failed to send");
     } finally {
       setSending(false);
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      });
     }
   }
 
@@ -89,14 +95,21 @@ export default function InputBar({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
   }
 
+  function preventBlur(e: React.MouseEvent | React.TouchEvent) {
+    e.preventDefault();
+  }
+
   return (
     <div className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
       {editingId && (
-        <div className="mb-2 flex items-center justify-between rounded-lg bg-blue-50 px-3 py-1.5">
-          <span className="text-xs font-medium text-blue-600">
+        <div
+          className={`mb-2 flex items-center justify-between rounded-lg px-3 py-1.5 ${theme.editBanner}`}
+        >
+          <span className={`text-xs font-medium ${theme.editBannerText}`}>
             Editing message
           </span>
           <button
+            type="button"
             onClick={onCancelEdit}
             className="text-xs text-slate-500 hover:text-slate-700"
           >
@@ -105,9 +118,7 @@ export default function InputBar({
         </div>
       )}
 
-      {error && (
-        <p className="mb-2 text-xs text-red-500">{error}</p>
-      )}
+      {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
 
       <div className="flex items-end gap-2">
         <textarea
@@ -117,13 +128,18 @@ export default function InputBar({
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           rows={1}
-          disabled={sending}
-          className="scrollbar-thin max-h-[120px] min-h-[40px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-300 focus:bg-white disabled:opacity-50"
+          enterKeyHint="send"
+          autoComplete="off"
+          autoCorrect="on"
+          className={`scrollbar-thin max-h-[120px] min-h-[40px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:bg-white disabled:opacity-50 ${theme.inputFocus}`}
         />
         <button
+          type="button"
           onClick={handleSubmit}
+          onMouseDown={preventBlur}
+          onTouchStart={preventBlur}
           disabled={!content.trim() || sending}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500 text-white transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${theme.button} ${theme.buttonHover}`}
         >
           {sending ? (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

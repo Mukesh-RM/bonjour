@@ -4,10 +4,14 @@ import { MessageWithSender } from "@/lib/types";
 import { useEffect, useRef } from "react";
 import MessageBubble from "./MessageBubble";
 
+import { UserTheme } from "@/lib/theme";
+
 interface MessageListProps {
   messages: MessageWithSender[];
   currentUserId: string;
   loading: boolean;
+  ownTheme: UserTheme;
+  otherTheme: UserTheme;
   onEdit: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
   onVisible?: () => void;
@@ -17,6 +21,8 @@ export default function MessageList({
   messages,
   currentUserId,
   loading,
+  ownTheme,
+  otherTheme,
   onEdit,
   onDelete,
   onVisible,
@@ -68,6 +74,8 @@ export default function MessageList({
                 message={message}
                 isOwn={isOwn}
                 showAvatar={showAvatar}
+                ownTheme={ownTheme}
+                otherTheme={otherTheme}
                 onEdit={() => onEdit(message.id)}
                 onDelete={() => onDelete(message.id)}
               />

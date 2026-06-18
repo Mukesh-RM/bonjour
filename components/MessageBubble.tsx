@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageWithSender } from "@/lib/types";
+import { UserTheme } from "@/lib/theme";
 import { getAvatarLabel } from "@/lib/display-names";
 import { useEffect, useRef, useState } from "react";
 
@@ -8,6 +9,8 @@ interface MessageBubbleProps {
   message: MessageWithSender;
   isOwn: boolean;
   showAvatar: boolean;
+  ownTheme: UserTheme;
+  otherTheme: UserTheme;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -17,7 +20,13 @@ function formatTime(dateStr: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function ReadReceipt({ readAt }: { readAt: string | null }) {
+function ReadReceipt({
+  readAt,
+  readColor,
+}: {
+  readAt: string | null;
+  readColor: string;
+}) {
   if (readAt) {
     return (
       <svg
@@ -28,14 +37,14 @@ function ReadReceipt({ readAt }: { readAt: string | null }) {
       >
         <path
           d="M1 5.5L4 9l2-2"
-          stroke="#53bdeb"
+          stroke={readColor}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
           d="M5 5.5L8.5 9 15 1.5"
-          stroke="#53bdeb"
+          stroke={readColor}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -46,7 +55,7 @@ function ReadReceipt({ readAt }: { readAt: string | null }) {
 
   return (
     <svg
-      className="inline-block h-3.5 w-4 shrink-0 opacity-60"
+      className="inline-block h-3.5 w-4 shrink-0 opacity-70"
       viewBox="0 0 16 11"
       fill="none"
       aria-label="Delivered"
@@ -73,12 +82,15 @@ export default function MessageBubble({
   message,
   isOwn,
   showAvatar,
+  ownTheme,
+  otherTheme,
   onEdit,
   onDelete,
 }: MessageBubbleProps) {
   const [showMenu, setShowMenu] = useState(false);
   const longPressRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const theme = isOwn ? ownTheme : otherTheme;
 
   useEffect(() => {
     if (!showMenu) return;
@@ -121,6 +133,9 @@ export default function MessageBubble({
   }
 
   const senderName = message.sender?.username ?? "user1";
+  const bubbleClass = isOwn
+    ? `${theme.bubble} ${theme.bubbleText} rounded-br-md`
+    : `${otherTheme.otherBubble} ${otherTheme.otherBubbleText} rounded-bl-md`;
 
   return (
     <div
@@ -130,7 +145,9 @@ export default function MessageBubble({
       onMouseLeave={() => setShowMenu(false)}
     >
       {!isOwn && showAvatar && (
-        <div className="mr-2 mt-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-500">
+        <div
+          className={`mr-2 mt-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${otherTheme.headerAvatar}`}
+        >
           {getAvatarLabel(senderName)}
         </div>
       )}
@@ -151,11 +168,7 @@ export default function MessageBubble({
         )}
 
         {showMenu && isOwn && (
-          <div
-            className={`absolute z-20 min-w-[120px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg ${
-              isOwn ? "right-0 top-full mt-1 sm:-left-28 sm:right-auto sm:top-0 sm:mt-0" : ""
-            }`}
-          >
+          <div className="absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg sm:-left-28 sm:right-auto sm:top-0 sm:mt-0">
             <button
               type="button"
               onClick={() => {
@@ -189,11 +202,7 @@ export default function MessageBubble({
               setShowMenu(true);
             }
           }}
-          className={`rounded-2xl px-4 py-2 ${
-            isOwn
-              ? "rounded-br-md bg-blue-500 text-white"
-              : "rounded-bl-md bg-white text-slate-800 shadow-sm"
-          } ${isOwn ? "select-none" : ""}`}
+          className={`rounded-2xl px-4 py-2 ${bubbleClass} ${isOwn ? "select-none" : ""}`}
         >
           <p className="whitespace-pre-wrap break-words text-sm">
             {message.content}
@@ -201,12 +210,14 @@ export default function MessageBubble({
 
           <div
             className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${
-              isOwn ? "text-blue-100" : "text-slate-400"
+              isOwn ? theme.bubbleMeta : "text-slate-400"
             }`}
           >
             {message.edited_at && <span className="italic">edited</span>}
             <span>{formatTime(message.created_at)}</span>
-            {isOwn && <ReadReceipt readAt={message.read_at} />}
+            {isOwn && (
+              <ReadReceipt readAt={message.read_at} readColor={ownTheme.readStroke} />
+            )}
           </div>
         </div>
       </div>
