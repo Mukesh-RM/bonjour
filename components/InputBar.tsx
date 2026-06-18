@@ -100,7 +100,7 @@ export default function InputBar({
   }
 
   return (
-    <div className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
+    <div className={`border-t px-4 py-3 sm:px-6 ${theme.footerBg}`}>
       {editingId && (
         <div
           className={`mb-2 flex items-center justify-between rounded-lg px-3 py-1.5 ${theme.editBanner}`}
@@ -131,7 +131,7 @@ export default function InputBar({
           enterKeyHint="send"
           autoComplete="off"
           autoCorrect="on"
-          className={`scrollbar-thin max-h-[120px] min-h-[40px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:bg-white disabled:opacity-50 ${theme.inputFocus}`}
+          className={`scrollbar-thin max-h-[120px] min-h-[40px] flex-1 resize-none rounded-xl border px-4 py-2.5 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:bg-white disabled:opacity-50 ${theme.inputBg} ${theme.inputBorder} ${theme.inputFocus}`}
         />
         <button
           type="button"
@@ -139,7 +139,7 @@ export default function InputBar({
           onMouseDown={preventBlur}
           onTouchStart={preventBlur}
           disabled={!content.trim() || sending}
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${theme.button} ${theme.buttonHover}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed ${theme.button} ${theme.buttonHover} ${theme.buttonDisabled}`}
         >
           {sending ? (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
