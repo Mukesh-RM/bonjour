@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { ALLOWED_USERNAMES, JwtPayload, SessionUser, Username } from "@/lib/types";
 
-const COOKIE_NAME = "bonjour_session";
+import { SESSION_COOKIE_NAME } from "@/lib/cookie";
 const TOKEN_EXPIRY = "7d";
 
 function getSecret(): Uint8Array | null {
@@ -53,7 +53,7 @@ export async function verifyToken(token: string): Promise<JwtPayload | null> {
 
 export async function getSessionFromCookies(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
   const payload = await verifyToken(token);
@@ -65,7 +65,7 @@ export async function getSessionFromCookies(): Promise<SessionUser | null> {
 export async function getSessionFromRequest(
   request: NextRequest
 ): Promise<SessionUser | null> {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
   const payload = await verifyToken(token);
@@ -75,7 +75,7 @@ export async function getSessionFromRequest(
 }
 
 export function getCookieName(): string {
-  return COOKIE_NAME;
+  return SESSION_COOKIE_NAME;
 }
 
 export function getCookieOptions(maxAge = 60 * 60 * 24 * 7) {

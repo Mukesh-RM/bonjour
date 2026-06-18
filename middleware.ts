@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getCookieName, verifyToken } from "@/lib/auth";
+import { SESSION_COOKIE_NAME } from "@/lib/cookie";
 
 const publicPaths = ["/login", "/api/auth/login", "/api/health"];
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (request.method === "OPTIONS") {
@@ -19,24 +19,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(getCookieName())?.value;
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (!token) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  const payload = await verifyToken(token);
-
-  if (!payload) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.set(getCookieName(), "", { maxAge: 0, path: "/" });
-    return response;
   }
 
   if (pathname === "/login") {
@@ -47,10 +36,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/chat", request.url));
   }
 
-  const response = NextResponse.next();
-  response.headers.set("x-user-id", payload.sub);
-  response.headers.set("x-username", payload.username);
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
