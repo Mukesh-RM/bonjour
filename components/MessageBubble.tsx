@@ -1,7 +1,8 @@
 "use client";
 
 import { MessageWithSender } from "@/lib/types";
-import { useState } from "react";
+import { getAvatarLabel } from "@/lib/display-names";
+import { useEffect, useRef, useState } from "react";
 
 interface MessageBubbleProps {
   message: MessageWithSender;
@@ -76,10 +77,50 @@ export default function MessageBubble({
   onDelete,
 }: MessageBubbleProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const longPressRef = useRef<NodeJS.Timeout | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMenu) return;
+
+    function handleOutside(e: MouseEvent | TouchEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+    };
+  }, [showMenu]);
+
+  function clearLongPress() {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }
+
+  function handleTouchStart() {
+    if (!isOwn) return;
+    clearLongPress();
+    longPressRef.current = setTimeout(() => {
+      setShowMenu(true);
+    }, 450);
+  }
+
+  function handleTouchEnd() {
+    clearLongPress();
+  }
 
   if (message.is_deleted) {
     return null;
   }
+
+  const senderName = message.sender?.username ?? "user1";
 
   return (
     <div
@@ -90,16 +131,18 @@ export default function MessageBubble({
     >
       {!isOwn && showAvatar && (
         <div className="mr-2 mt-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-500">
-          {message.sender?.username === "user1" ? "U1" : "U2"}
+          {getAvatarLabel(senderName)}
         </div>
       )}
       {!isOwn && !showAvatar && <div className="mr-2 w-8 shrink-0" />}
 
-      <div className="relative max-w-[75%] sm:max-w-[60%]">
+      <div ref={menuRef} className="relative max-w-[75%] sm:max-w-[60%]">
         {isOwn && (
           <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="absolute -left-8 top-1/2 hidden -translate-y-1/2 rounded p-1 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-slate-600 sm:block"
+            type="button"
+            onClick={() => setShowMenu((v) => !v)}
+            className="absolute -left-7 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 sm:-left-8 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+            aria-label="Message options"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
@@ -108,34 +151,49 @@ export default function MessageBubble({
         )}
 
         {showMenu && isOwn && (
-          <div className="absolute -left-28 top-0 z-10 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          <div
+            className={`absolute z-20 min-w-[120px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg ${
+              isOwn ? "right-0 top-full mt-1 sm:-left-28 sm:right-auto sm:top-0 sm:mt-0" : ""
+            }`}
+          >
             <button
+              type="button"
               onClick={() => {
                 setShowMenu(false);
                 onEdit();
               }}
-              className="block w-full px-4 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+              className="block w-full px-4 py-2.5 text-left text-sm text-slate-700 active:bg-slate-50"
             >
               Edit
             </button>
             <button
+              type="button"
               onClick={() => {
                 setShowMenu(false);
                 onDelete();
               }}
-              className="block w-full px-4 py-1.5 text-left text-sm text-red-600 hover:bg-red-50"
+              className="block w-full px-4 py-2.5 text-left text-sm text-red-600 active:bg-red-50"
             >
-              Delete
+              Unsend
             </button>
           </div>
         )}
 
         <div
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchEnd}
+          onContextMenu={(e) => {
+            if (isOwn) {
+              e.preventDefault();
+              setShowMenu(true);
+            }
+          }}
           className={`rounded-2xl px-4 py-2 ${
             isOwn
               ? "rounded-br-md bg-blue-500 text-white"
               : "rounded-bl-md bg-white text-slate-800 shadow-sm"
-          }`}
+          } ${isOwn ? "select-none" : ""}`}
         >
           <p className="whitespace-pre-wrap break-words text-sm">
             {message.content}
@@ -146,9 +204,7 @@ export default function MessageBubble({
               isOwn ? "text-blue-100" : "text-slate-400"
             }`}
           >
-            {message.edited_at && (
-              <span className="italic">edited</span>
-            )}
+            {message.edited_at && <span className="italic">edited</span>}
             <span>{formatTime(message.created_at)}</span>
             {isOwn && <ReadReceipt readAt={message.read_at} />}
           </div>

@@ -9,6 +9,7 @@ import InputBar from "./InputBar";
 import TypingIndicator from "./TypingIndicator";
 import type { Message } from "@/lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { getDisplayName, getAvatarLabel } from "@/lib/display-names";
 
 interface ChatContainerProps {
   currentUser: SessionUser;
@@ -288,7 +289,7 @@ export default function ChatContainer({
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600">
-              {otherUsername === "user1" ? "U1" : "U2"}
+              {getAvatarLabel(otherUsername)}
             </div>
             <span
               className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
@@ -297,7 +298,7 @@ export default function ChatContainer({
             />
           </div>
           <div>
-            <h1 className="font-semibold text-slate-900">{otherUsername}</h1>
+            <h1 className="font-semibold text-slate-900">{getDisplayName(otherUsername)}</h1>
             <p className="text-xs text-slate-500">
               {otherTyping ? "typing..." : otherOnline ? "online" : "offline"}
             </p>
@@ -305,7 +306,7 @@ export default function ChatContainer({
         </div>
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-slate-500 sm:inline">
-            {currentUser.username}
+            {getDisplayName(currentUser.username)}
           </span>
           <button
             onClick={handleLogout}
@@ -325,7 +326,7 @@ export default function ChatContainer({
         onVisible={markMessagesRead}
       />
 
-      {otherTyping && <TypingIndicator username={otherUsername} />}
+      {otherTyping && <TypingIndicator username={getDisplayName(otherUsername)} />}
 
       <InputBar
         onSend={handleSend}

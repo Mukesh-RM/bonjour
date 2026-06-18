@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ALLOWED_USERNAMES } from "@/lib/types";
+import { getDisplayName, getAvatarLabel } from "@/lib/display-names";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -86,12 +87,12 @@ export default function LoginPage() {
               }`}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-sm font-semibold text-white">
-                {name === "user1" ? "U1" : "U2"}
+                {getAvatarLabel(name)}
               </div>
               <div>
-                <p className="font-semibold text-slate-900">{name}</p>
+                <p className="font-semibold text-slate-900">{getDisplayName(name)}</p>
                 <p className="text-xs text-slate-500">
-                  {name === "user1" ? "Primary account" : "Secondary account"}
+                  {name === "user1" ? "His account" : "Her account"}
                 </p>
               </div>
             </button>
