@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { UserTheme } from "@/lib/theme";
+import EmojiPicker from "./EmojiPicker";
 
 interface InputBarProps {
   onSend: (content: string) => Promise<void>;
@@ -25,6 +26,7 @@ export default function InputBar({
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -99,6 +101,26 @@ export default function InputBar({
     e.preventDefault();
   }
 
+  function insertEmoji(emoji: string) {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setContent((prev) => prev + emoji);
+      handleTyping();
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    setContent((prev) => prev.slice(0, start) + emoji + prev.slice(end));
+    handleTyping();
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const pos = start + emoji.length;
+      textarea.setSelectionRange(pos, pos);
+    });
+  }
+
   return (
     <div className={`border-t px-4 py-3 sm:px-6 ${theme.footerBg}`}>
       {editingId && (
@@ -121,6 +143,25 @@ export default function InputBar({
       {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
 
       <div className="flex items-end gap-2">
+        <div className="relative shrink-0">
+          {showEmojiPicker && (
+            <EmojiPicker
+              theme={theme}
+              onSelect={insertEmoji}
+              onClose={() => setShowEmojiPicker(false)}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((open) => !open)}
+            onMouseDown={preventBlur}
+            onTouchStart={preventBlur}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border text-lg transition-colors ${theme.inputBg} ${theme.inputBorder} hover:bg-white`}
+            aria-label="Insert emoji"
+          >
+            😊
+          </button>
+        </div>
         <textarea
           ref={textareaRef}
           value={content}

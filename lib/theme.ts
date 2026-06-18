@@ -96,7 +96,7 @@ export function getTypingTheme(username: string): UserTheme {
   return username === "user2" ? THEMES.user1 : THEMES.user2;
 }
 
-/** Chat shell uses the opposite color: Her → blue, He → pink */
+/** Chat shell matches the logged-in user: He → blue, Her → pink */
 export function getChatTheme(username: string): UserTheme {
-  return getOtherUserTheme(username);
+  return getUserTheme(username);
 }
