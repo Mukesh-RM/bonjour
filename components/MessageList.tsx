@@ -10,6 +10,7 @@ interface MessageListProps {
   loading: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
+  onVisible?: () => void;
 }
 
 export default function MessageList({
@@ -18,6 +19,7 @@ export default function MessageList({
   loading,
   onEdit,
   onDelete,
+  onVisible,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,9 +28,12 @@ export default function MessageList({
   useEffect(() => {
     if (messages.length > prevLengthRef.current || !loading) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      onVisible?.();
     }
     prevLengthRef.current = messages.length;
-  }, [messages, loading]);
+  }, [messages, loading, onVisible]);
+
+  const visibleMessages = messages.filter((m) => !m.is_deleted);
 
   if (loading) {
     return (
@@ -43,7 +48,7 @@ export default function MessageList({
       ref={containerRef}
       className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4 sm:px-6"
     >
-      {messages.length === 0 ? (
+      {visibleMessages.length === 0 ? (
         <div className="flex h-full items-center justify-center">
           <p className="text-sm text-slate-400">
             No messages yet. Say hello!
@@ -51,9 +56,9 @@ export default function MessageList({
         </div>
       ) : (
         <div className="space-y-1">
-          {messages.map((message, index) => {
+          {visibleMessages.map((message, index) => {
             const isOwn = message.sender_id === currentUserId;
-            const prevMessage = messages[index - 1];
+            const prevMessage = visibleMessages[index - 1];
             const showAvatar =
               !prevMessage || prevMessage.sender_id !== message.sender_id;
 

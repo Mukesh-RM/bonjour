@@ -26,16 +26,16 @@ function ReadReceipt({ readAt }: { readAt: string | null }) {
         aria-label="Read"
       >
         <path
-          d="M11.5 1.5L6 7l-1.5-1.5M4.5 1.5L0 6l1.5 1.5M11.5 1.5l1.5 1.5L16 1.5"
+          d="M1 5.5L4 9l2-2"
           stroke="#53bdeb"
-          strokeWidth="1.4"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
-          d="M5 5.5L7.5 8l5.5-5.5"
+          d="M5 5.5L8.5 9 15 1.5"
           stroke="#53bdeb"
-          strokeWidth="1.4"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -45,15 +45,22 @@ function ReadReceipt({ readAt }: { readAt: string | null }) {
 
   return (
     <svg
-      className="inline-block h-3.5 w-3 shrink-0 opacity-70"
-      viewBox="0 0 12 11"
+      className="inline-block h-3.5 w-4 shrink-0 opacity-60"
+      viewBox="0 0 16 11"
       fill="none"
-      aria-label="Sent"
+      aria-label="Delivered"
     >
       <path
-        d="M1 5.5L4.5 9 11 1"
+        d="M1 5.5L4 9l2-2"
         stroke="currentColor"
-        strokeWidth="1.4"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 5.5L8.5 9 15 1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -70,6 +77,10 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const [showMenu, setShowMenu] = useState(false);
 
+  if (message.is_deleted) {
+    return null;
+  }
+
   return (
     <div
       className={`group flex animate-slide-up ${isOwn ? "justify-end" : "justify-start"} ${
@@ -85,7 +96,7 @@ export default function MessageBubble({
       {!isOwn && !showAvatar && <div className="mr-2 w-8 shrink-0" />}
 
       <div className="relative max-w-[75%] sm:max-w-[60%]">
-        {isOwn && !message.is_deleted && (
+        {isOwn && (
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="absolute -left-8 top-1/2 hidden -translate-y-1/2 rounded p-1 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-slate-600 sm:block"
@@ -126,26 +137,20 @@ export default function MessageBubble({
               : "rounded-bl-md bg-white text-slate-800 shadow-sm"
           }`}
         >
-          {message.is_deleted ? (
-            <p className="text-sm italic opacity-70">This message was deleted</p>
-          ) : (
-            <p className="whitespace-pre-wrap break-words text-sm">
-              {message.content}
-            </p>
-          )}
+          <p className="whitespace-pre-wrap break-words text-sm">
+            {message.content}
+          </p>
 
           <div
             className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${
               isOwn ? "text-blue-100" : "text-slate-400"
             }`}
           >
-            {message.edited_at && !message.is_deleted && (
+            {message.edited_at && (
               <span className="italic">edited</span>
             )}
             <span>{formatTime(message.created_at)}</span>
-            {isOwn && !message.is_deleted && (
-              <ReadReceipt readAt={message.read_at} />
-            )}
+            {isOwn && <ReadReceipt readAt={message.read_at} />}
           </div>
         </div>
       </div>

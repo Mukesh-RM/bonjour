@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
       .or(
         `and(sender_id.eq.${session.id},recipient_id.eq.${otherUser.id}),and(sender_id.eq.${otherUser.id},recipient_id.eq.${session.id})`
       )
+      .eq("is_deleted", false)
       .order("created_at", { ascending: true })
       .range(offset, offset + limit - 1);
 
@@ -83,25 +84,8 @@ export async function GET(request: NextRequest) {
       throw new Error(error.message);
     }
 
-    const unreadIds = (messages ?? [])
-      .filter((m) => m.recipient_id === session.id && !m.read_at && !m.is_deleted)
-      .map((m) => m.id);
-
-    if (unreadIds.length > 0) {
-      await supabase
-        .from("messages")
-        .update({ read_at: new Date().toISOString() })
-        .in("id", unreadIds);
-    }
-
     const formatted: MessageWithSender[] = (messages ?? []).map((m) =>
-      formatMessage({
-        ...m,
-        read_at:
-          m.recipient_id === session.id
-            ? m.read_at ?? (unreadIds.includes(m.id) ? new Date().toISOString() : null)
-            : m.read_at,
-      })
+      formatMessage(m)
     );
 
     return jsonResponse({ messages: formatted, total: count ?? 0 });

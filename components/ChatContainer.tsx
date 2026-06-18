@@ -3,9 +3,11 @@
 import { MessageWithSender, SessionUser } from "@/lib/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { buildMessageFromRow, isChatVisible } from "@/lib/chat-utils";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import TypingIndicator from "./TypingIndicator";
+import type { Message } from "@/lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface ChatContainerProps {
@@ -22,10 +24,13 @@ export default function ChatContainer({
   const [otherOnline, setOtherOnline] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const presenceRef = useRef<RealtimeChannel | null>(null);
+  const typingRef = useRef<RealtimeChannel | null>(null);
   const isTypingRef = useRef(false);
+  const typingStopRef = useRef<NodeJS.Timeout | null>(null);
 
   const markMessagesRead = useCallback(async () => {
+    if (!isChatVisible()) return;
     try {
       await fetch("/api/messages/read", { method: "POST" });
     } catch {
@@ -39,7 +44,9 @@ export default function ChatContainer({
       if (!res.ok) return;
       const data = await res.json();
       setMessages(data.messages);
-      await markMessagesRead();
+      if (isChatVisible()) {
+        await markMessagesRead();
+      }
     } catch {
       return;
     } finally {
@@ -52,11 +59,17 @@ export default function ChatContainer({
   }, [fetchMessages]);
 
   useEffect(() => {
-    const readInterval = setInterval(() => {
-      markMessagesRead();
-    }, 5000);
-
-    return () => clearInterval(readInterval);
+    const onVisible = () => {
+      if (isChatVisible()) {
+        markMessagesRead();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [markMessagesRead]);
 
   useEffect(() => {
@@ -66,60 +79,41 @@ export default function ChatContainer({
       .channel("messages-changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "messages" },
-        async (payload) => {
-          if (payload.eventType === "INSERT") {
-            const row = payload.new as MessageWithSender;
-            const isIncoming = row.recipient_id === currentUser.id;
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const row = payload.new as Message;
+          if (row.is_deleted) return;
 
-            const { data } = await supabase
-              .from("messages")
-              .select(
-                "id, sender_id, recipient_id, content, is_deleted, edited_at, read_at, created_at, sender:auth_users!messages_sender_id_fkey(id, username)"
-              )
-              .eq("id", row.id)
-              .single();
+          const incoming = buildMessageFromRow(row, currentUser, otherUsername);
 
-            if (data) {
-              const sender = Array.isArray(data.sender) ? data.sender[0] : data.sender;
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === data.id)) return prev;
-                return [
-                  ...prev,
-                  {
-                    id: data.id,
-                    sender_id: data.sender_id,
-                    recipient_id: data.recipient_id,
-                    content: data.content,
-                    is_deleted: data.is_deleted,
-                    edited_at: data.edited_at,
-                    read_at: data.read_at,
-                    created_at: data.created_at,
-                    sender,
-                  },
-                ];
-              });
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === incoming.id)) return prev;
+            return [...prev, incoming];
+          });
 
-              if (isIncoming) {
-                markMessagesRead();
-              }
-            }
-          } else if (payload.eventType === "UPDATE") {
-            const updated = payload.new as MessageWithSender;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === updated.id
-                  ? {
-                      ...m,
-                      content: updated.content,
-                      is_deleted: updated.is_deleted,
-                      edited_at: updated.edited_at,
-                      read_at: updated.read_at,
-                    }
-                  : m
-              )
-            );
+          if (row.recipient_id === currentUser.id && isChatVisible()) {
+            markMessagesRead();
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        (payload) => {
+          const updated = payload.new as Message;
+
+          if (updated.is_deleted) {
+            setMessages((prev) => prev.filter((m) => m.id !== updated.id));
+            return;
+          }
+
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === updated.id
+                ? buildMessageFromRow(updated, currentUser, otherUsername)
+                : m
+            )
+          );
         }
       )
       .subscribe();
@@ -131,88 +125,90 @@ export default function ChatContainer({
     presenceChannel
       .on("presence", { event: "sync" }, () => {
         const state = presenceChannel.presenceState();
-        const otherEntries = Object.entries(state).filter(
-          ([key]) => key !== currentUser.id
-        );
-
         let online = false;
-        let typing = false;
 
-        for (const [, presences] of otherEntries) {
-          const presence = presences[0] as {
-            online?: boolean;
-            isTyping?: boolean;
-          };
+        for (const [key, presences] of Object.entries(state)) {
+          if (key === currentUser.id) continue;
+          const presence = presences[0] as { online?: boolean };
           if (presence?.online) online = true;
-          if (presence?.isTyping) typing = true;
         }
 
         setOtherOnline(online);
-        setOtherTyping(typing);
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           await presenceChannel.track({
             online: true,
-            isTyping: false,
             username: currentUser.username,
           });
         }
       });
 
-    channelRef.current = presenceChannel;
+    presenceRef.current = presenceChannel;
 
-    const heartbeat = setInterval(() => {
-      presenceChannel.track({
-        online: true,
-        isTyping: isTypingRef.current,
-        username: currentUser.username,
-      });
-      fetch("/api/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ online: true }),
-      }).catch(() => {});
-    }, 30_000);
+    const typingChannel = supabase.channel("bonjour-typing", {
+      config: { broadcast: { ack: false, self: false } },
+    });
+
+    typingChannel
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        const data = payload as { userId?: string; isTyping?: boolean };
+        if (data.userId && data.userId !== currentUser.id) {
+          setOtherTyping(Boolean(data.isTyping));
+        }
+      })
+      .subscribe();
+
+    typingRef.current = typingChannel;
 
     const handleUnload = () => {
       presenceChannel.untrack();
-      fetch("/api/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ online: false }),
-        keepalive: true,
-      }).catch(() => {});
     };
 
     window.addEventListener("beforeunload", handleUnload);
 
     return () => {
-      clearInterval(heartbeat);
       window.removeEventListener("beforeunload", handleUnload);
       handleUnload();
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(presenceChannel);
+      supabase.removeChannel(typingChannel);
     };
-  }, [currentUser.id, currentUser.username, markMessagesRead]);
+  }, [currentUser, otherUsername, markMessagesRead]);
 
   async function handleSend(content: string) {
+    const trimmed = content.trim();
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: MessageWithSender = {
+      id: tempId,
+      sender_id: currentUser.id,
+      recipient_id: "pending",
+      content: trimmed,
+      is_deleted: false,
+      edited_at: null,
+      read_at: null,
+      created_at: new Date().toISOString(),
+      sender: { id: currentUser.id, username: currentUser.username },
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+
     const res = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content: trimmed }),
     });
 
     if (!res.ok) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       const data = await res.json();
       throw new Error(data.error || "Failed to send");
     }
 
     const data = await res.json();
-    setMessages((prev) => {
-      if (prev.some((m) => m.id === data.message.id)) return prev;
-      return [...prev, data.message];
-    });
+    setMessages((prev) =>
+      prev.map((m) => (m.id === tempId ? data.message : m))
+    );
   }
 
   async function handleEdit(id: string, content: string) {
@@ -235,35 +231,50 @@ export default function ChatContainer({
   }
 
   async function handleDelete(id: string) {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+
     const res = await fetch(`/api/messages/${id}`, { method: "DELETE" });
 
     if (!res.ok) {
+      await fetchMessages();
       const data = await res.json();
       throw new Error(data.error || "Failed to delete");
     }
-
-    const data = await res.json();
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? data.message : m))
-    );
   }
 
-  async function handleTyping(isTyping: boolean) {
+  function handleTyping(isTyping: boolean) {
     isTypingRef.current = isTyping;
 
-    if (channelRef.current) {
-      await channelRef.current.track({
-        online: true,
-        isTyping,
-        username: currentUser.username,
+    if (typingRef.current) {
+      typingRef.current.send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          userId: currentUser.id,
+          username: currentUser.username,
+          isTyping,
+        },
       });
     }
 
-    fetch("/api/typing", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isTyping }),
-    }).catch(() => {});
+    if (typingStopRef.current) {
+      clearTimeout(typingStopRef.current);
+    }
+
+    if (isTyping) {
+      typingStopRef.current = setTimeout(() => {
+        isTypingRef.current = false;
+        typingRef.current?.send({
+          type: "broadcast",
+          event: "typing",
+          payload: {
+            userId: currentUser.id,
+            username: currentUser.username,
+            isTyping: false,
+          },
+        });
+      }, 2500);
+    }
   }
 
   async function handleLogout() {
@@ -311,6 +322,7 @@ export default function ChatContainer({
         loading={loading}
         onEdit={setEditingId}
         onDelete={handleDelete}
+        onVisible={markMessagesRead}
       />
 
       {otherTyping && <TypingIndicator username={otherUsername} />}
