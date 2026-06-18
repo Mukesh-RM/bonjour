@@ -6,11 +6,10 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { buildMessageFromRow, isChatVisible } from "@/lib/chat-utils";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-import TypingIndicator from "./TypingIndicator";
 import type { Message } from "@/lib/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getDisplayName, getAvatarLabel } from "@/lib/display-names";
-import { getOtherUserTheme, getUserTheme } from "@/lib/theme";
+import { getChatTheme, getOtherUserTheme, getTypingTheme } from "@/lib/theme";
 
 interface ChatContainerProps {
   currentUser: SessionUser;
@@ -33,8 +32,9 @@ export default function ChatContainer({
   const isTypingRef = useRef(false);
   const typingStopRef = useRef<NodeJS.Timeout | null>(null);
 
-  const ownTheme = getUserTheme(currentUser.username);
+  const chatTheme = getChatTheme(currentUser.username);
   const otherTheme = getOtherUserTheme(currentUser.username);
+  const typingTheme = getTypingTheme(otherUsername);
 
   const markMessagesRead = useCallback(async () => {
     if (!isChatVisible()) return;
@@ -315,8 +315,10 @@ export default function ChatContainer({
   }
 
   return (
-    <div className="flex h-screen flex-col bg-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-6">
+    <div className={`flex h-screen flex-col ${chatTheme.pageBg}`}>
+      <header
+        className={`flex items-center justify-between border-b px-4 py-3 shadow-sm sm:px-6 ${chatTheme.headerBg} ${chatTheme.headerBorder}`}
+      >
         <div className="flex items-center gap-3">
           <div className="relative">
             <div
@@ -331,10 +333,31 @@ export default function ChatContainer({
             />
           </div>
           <div>
-            <h1 className="font-semibold text-slate-900">{getDisplayName(otherUsername)}</h1>
-            <p className="text-xs text-slate-500">
-              {otherTyping ? "typing..." : otherOnline ? "online" : "offline"}
-            </p>
+            <h1 className={`font-semibold ${otherTheme.accentText}`}>
+              {getDisplayName(otherUsername)}
+            </h1>
+            {otherTyping ? (
+              <p
+                className={`flex items-center gap-1.5 text-xs font-medium ${typingTheme.accentText}`}
+              >
+                <span className="flex items-center gap-0.5">
+                  <span
+                    className={`inline-block h-1.5 w-1.5 animate-bounce-dot rounded-full ${typingTheme.button} [animation-delay:-0.32s]`}
+                  />
+                  <span
+                    className={`inline-block h-1.5 w-1.5 animate-bounce-dot rounded-full ${typingTheme.button} [animation-delay:-0.16s]`}
+                  />
+                  <span
+                    className={`inline-block h-1.5 w-1.5 animate-bounce-dot rounded-full ${typingTheme.button}`}
+                  />
+                </span>
+                typing...
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">
+                {otherOnline ? "online" : "offline"}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -345,7 +368,9 @@ export default function ChatContainer({
           >
             Reset
           </button>
-          <span className="hidden text-sm text-slate-500 sm:inline">
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-medium sm:px-3 sm:text-sm ${chatTheme.userBadge}`}
+          >
             {getDisplayName(currentUser.username)}
           </span>
           <button
@@ -391,14 +416,12 @@ export default function ChatContainer({
         messages={messages}
         currentUserId={currentUser.id}
         loading={loading}
-        ownTheme={ownTheme}
+        ownTheme={chatTheme}
         otherTheme={otherTheme}
         onEdit={setEditingId}
         onDelete={handleDelete}
         onVisible={markMessagesRead}
       />
-
-      {otherTyping && <TypingIndicator username={getDisplayName(otherUsername)} />}
 
       <InputBar
         onSend={handleSend}
@@ -411,7 +434,7 @@ export default function ChatContainer({
             : ""
         }
         onSaveEdit={handleEdit}
-        theme={ownTheme}
+        theme={chatTheme}
       />
     </div>
   );
