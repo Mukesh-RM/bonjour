@@ -12,7 +12,8 @@ export function getEnvStatus(): { ok: true } | { ok: false; missing: string[] } 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     missing.push("SUPABASE_SERVICE_ROLE_KEY");
   }
-  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  const jwtSecret = process.env.JWT_SECRET?.trim();
+  if (!jwtSecret || jwtSecret.length < 32) {
     missing.push("JWT_SECRET (min 32 characters)");
   }
   if (!passwordsConfigured()) {

@@ -6,10 +6,10 @@ import { ALLOWED_USERNAMES, JwtPayload, SessionUser, Username } from "@/lib/type
 const COOKIE_NAME = "bonjour_session";
 const TOKEN_EXPIRY = "7d";
 
-function getSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET;
+function getSecret(): Uint8Array | null {
+  const secret = process.env.JWT_SECRET?.trim();
   if (!secret || secret.length < 32) {
-    throw new Error("JWT_SECRET must be at least 32 characters");
+    return null;
   }
   return new TextEncoder().encode(secret);
 }
@@ -19,17 +19,23 @@ export function isValidUsername(username: string): username is Username {
 }
 
 export async function createToken(user: SessionUser): Promise<string> {
+  const secret = getSecret();
+  if (!secret) {
+    throw new Error("JWT_SECRET must be at least 32 characters");
+  }
   return new SignJWT({ username: user.username })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
     .setIssuedAt()
     .setExpirationTime(TOKEN_EXPIRY)
-    .sign(getSecret());
+    .sign(secret);
 }
 
 export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const secret = getSecret();
+    if (!secret) return null;
+    const { payload } = await jwtVerify(token, secret);
     const username = payload.username as string;
     if (!isValidUsername(username) || typeof payload.sub !== "string") {
       return null;
